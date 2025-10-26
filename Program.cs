@@ -82,5 +82,15 @@ using (var scope = app.Services.CreateScope())
         db.SaveChanges();
     }
 }
+// Add this to Program.cs before app.Run()
+if (!app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "HybridTracker Pro API v1");
+        c.RoutePrefix = "swagger";
+    });
+}
 
 app.Run();
