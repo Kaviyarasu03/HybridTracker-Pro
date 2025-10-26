@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using HybridTracker_Pro.Data;
 using HybridTracker_Pro.Models;
+using HybridTracker_Pro.Services;
+using System.Security.Claims;
 
 namespace HybridTracker_Pro.Controllers
 {
@@ -38,6 +40,20 @@ namespace HybridTracker_Pro.Controllers
 
             _context.Applications.Add(application);
             await _context.SaveChangesAsync();
+
+            // ADD HISTORY LOGGING
+            using (var scope = HttpContext.RequestServices.CreateScope())
+            {
+                var historyService = scope.ServiceProvider.GetRequiredService<HistoryService>();
+                await historyService.LogApplicationHistory(
+                    application.Id,
+                    "None",
+                    application.Status,
+                    "Application created",
+                    "Applicant",
+                    application.UserId
+                );
+            }
 
             return Ok(new
             {
@@ -107,6 +123,17 @@ namespace HybridTracker_Pro.Controllers
             if (application == null)
                 return NotFound(new { message = "Application not found" });
 
+            // Users can only update their own applications
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            if (application.UserId != userId)
+                return StatusCode(403, new { message = "Can only update your own applications" });
+
+            // Users cannot update technical applications (only BotMimic can)
+            if (application.RoleApplied.ToLower() == "technical")
+                return BadRequest(new { message = "Technical applications are automatically updated by BotMimic" });
+
+            var oldStatus = application.Status;
+
             // Update only provided fields
             if (!string.IsNullOrEmpty(request.Status))
                 application.Status = request.Status;
@@ -117,6 +144,20 @@ namespace HybridTracker_Pro.Controllers
             application.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+
+            // ADD HISTORY LOGGING
+            using (var scope = HttpContext.RequestServices.CreateScope())
+            {
+                var historyService = scope.ServiceProvider.GetRequiredService<HistoryService>();
+                await historyService.LogApplicationHistory(
+                    application.Id,
+                    oldStatus,
+                    application.Status,
+                    request.Comments ?? "Status updated",
+                    "Applicant",
+                    userId
+                );
+            }
 
             return Ok(new { message = "Application updated successfully", applicationId = id });
         }
@@ -146,9 +187,5 @@ namespace HybridTracker_Pro.Controllers
         }
     }
 
-    public class ApplicationUpdateModel
-    {
-        public string? Status { get; set; }
-        public string? Comments { get; set; }
-    }
+   
 }

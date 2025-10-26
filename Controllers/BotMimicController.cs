@@ -22,11 +22,15 @@ namespace HybridTracker_Pro.Controllers
         [HttpPost("update-all")]
         public async Task<IActionResult> UpdateAllTechnicalApplications()
         {
-            var applications = await _context.Applications
+            // Get all applications first, then filter in memory
+            var allApplications = await _context.Applications
                 .Include(a => a.User)
-                .Where(a => string.Equals(a.RoleApplied, "technical", StringComparison.OrdinalIgnoreCase)
-                         && a.Status != "Offer" && a.Status != "Rejected")
                 .ToListAsync();
+
+            var applications = allApplications
+                .Where(a => a.RoleApplied.ToLower() == "technical"
+                         && a.Status != "Offer" && a.Status != "Rejected")
+                .ToList();
 
             var updatedCount = 0;
 
@@ -65,11 +69,14 @@ namespace HybridTracker_Pro.Controllers
         {
             var application = await _context.Applications
                 .Include(a => a.User)
-                .FirstOrDefaultAsync(a => a.Id == id
-                    && string.Equals(a.RoleApplied, "technical", StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefaultAsync(a => a.Id == id);
 
             if (application == null)
-                return NotFound(new { message = "Technical application not found" });
+                return NotFound(new { message = "Application not found" });
+
+            // Check if it's technical role (in memory)
+            if (application.RoleApplied.ToLower() != "technical")
+                return BadRequest(new { message = "Only technical applications can be auto-updated" });
 
             if (application.Status == "Offer" || application.Status == "Rejected")
                 return BadRequest(new { message = "Cannot update application in final status" });
@@ -101,9 +108,12 @@ namespace HybridTracker_Pro.Controllers
         [HttpGet("status")]
         public async Task<IActionResult> GetBotStatus()
         {
-            var technicalApps = await _context.Applications
-                .Where(a => string.Equals(a.RoleApplied, "technical", StringComparison.OrdinalIgnoreCase))
-                .ToListAsync();
+            // Get all applications first, then filter in memory
+            var allApplications = await _context.Applications.ToListAsync();
+
+            var technicalApps = allApplications
+                .Where(a => a.RoleApplied.ToLower() == "technical")
+                .ToList();
 
             var stats = technicalApps
                 .GroupBy(a => a.Status)
@@ -128,13 +138,13 @@ namespace HybridTracker_Pro.Controllers
             var allApplications = await _context.Applications.ToListAsync();
 
             var technicalStats = allApplications
-                .Where(a => string.Equals(a.RoleApplied, "technical", StringComparison.OrdinalIgnoreCase))
+                .Where(a => a.RoleApplied.ToLower() == "technical")
                 .GroupBy(a => a.Status)
                 .Select(g => new { Status = g.Key, Count = g.Count() })
                 .ToList();
 
             var nonTechnicalStats = allApplications
-                .Where(a => string.Equals(a.RoleApplied, "non-technical", StringComparison.OrdinalIgnoreCase))
+                .Where(a => a.RoleApplied.ToLower() == "non-technical")
                 .GroupBy(a => a.Status)
                 .Select(g => new { Status = g.Key, Count = g.Count() })
                 .ToList();

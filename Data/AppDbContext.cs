@@ -10,12 +10,13 @@ namespace HybridTracker_Pro.Data
         public DbSet<User> Users => Set<User>();
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<Application> Applications => Set<Application>();
+        public DbSet<ApplicationHistory> ApplicationHistories => Set<ApplicationHistory>();
+        public DbSet<JobPosting> JobPostings => Set<JobPosting>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // Seed initial roles
             modelBuilder.Entity<Role>().HasData(
                 new Role { Id = 1, Name = "Applicant" },
                 new Role { Id = 2, Name = "BotMimic" },
