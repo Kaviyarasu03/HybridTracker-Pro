@@ -92,5 +92,12 @@ if (!app.Environment.IsDevelopment())
         c.RoutePrefix = "swagger";
     });
 }
+// Enable Swagger in Production too
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "HybridTracker Pro API v1");
+    c.RoutePrefix = "swagger";
+});
 
 app.Run();
