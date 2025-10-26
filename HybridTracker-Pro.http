@@ -1,0 +1,6 @@
+@HybridTracker_Pro_HostAddress = http://localhost:5029
+
+GET {{HybridTracker_Pro_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
