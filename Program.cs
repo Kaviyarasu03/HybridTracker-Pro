@@ -8,16 +8,12 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Add services
 builder.Services.AddControllers();
-
-// Swagger configuration
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "HybridTracker Pro API", Version = "v1" });
-
-    // JWT Authorization in Swagger
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -27,86 +23,61 @@ builder.Services.AddSwaggerGen(c =>
         In = Microsoft.OpenApi.Models.ParameterLocation.Header,
         Description = "Enter 'Bearer' followed by your JWT token"
     });
-
     c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
     {
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>() // Fixed: Use Array.Empty instead of new string[]
-        }
+        { new Microsoft.OpenApi.Models.OpenApiSecurityScheme { Reference = new Microsoft.OpenApi.Models.OpenApiReference { Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme, Id = "Bearer" } }, Array.Empty<string>() }
     });
 });
 
-// Database connection
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Add custom services
+// Database & Services
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<HistoryService>();
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var jwtKey = jwtSettings["Key"] ?? "DefaultFallbackKeyThatIsLongEnoughForSecurity12345";
-var jwtIssuer = jwtSettings["Issuer"] ?? "HybridTrackerPro";
-var jwtAudience = jwtSettings["Audience"] ?? "HybridTrackerUsers";
-
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtIssuer,
-            ValidAudience = jwtAudience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
-        };
-    });
-
-builder.Services.AddAuthorization();
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtSettings["Issuer"] ?? "HybridTrackerPro",
+        ValidAudience = jwtSettings["Audience"] ?? "HybridTrackerUsers",
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+    };
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Middleware - NO HTTPS REDIRECTION
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "HybridTracker Pro API v1");
-        c.RoutePrefix = "swagger"; // Changed: Use /swagger instead of root
-    });
+    app.UseSwaggerUI(c => { c.SwaggerEndpoint("/swagger/v1/swagger.json", "HybridTracker Pro API v1"); c.RoutePrefix = "swagger"; });
 }
 
-// REMOVED: app.UseHttpsRedirection(); // This was causing the issue
-
+// app.UseHttpsRedirection(); // REMOVED
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 
-// Create & seed database
+// Database setup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.EnsureDeleted();
     db.Database.EnsureCreated();
 
-    // Seed roles if they don't exist
+    // FIXED: Manual seeding without explicit IDs
     if (!db.Roles.Any())
     {
         db.Roles.AddRange(
-            new Role { Id = 1, Name = "Applicant" },
-            new Role { Id = 2, Name = "BotMimic" },
-            new Role { Id = 3, Name = "Admin" }
+            new Role { Name = "Applicant" },
+            new Role { Name = "BotMimic" },
+            new Role { Name = "Admin" }
         );
         db.SaveChanges();
     }

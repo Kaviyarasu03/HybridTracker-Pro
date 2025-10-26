@@ -17,11 +17,7 @@ namespace HybridTracker_Pro.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.Entity<Role>().HasData(
-                new Role { Id = 1, Name = "Applicant" },
-                new Role { Id = 2, Name = "BotMimic" },
-                new Role { Id = 3, Name = "Admin" }
-            );
+            // REMOVED: HasData seeding - we'll do manual seeding in Program.cs
         }
     }
 }

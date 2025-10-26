@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using HybridTracker_Pro.Data;
 using HybridTracker_Pro.Models;
+using HybridTracker_Pro.Services;
 
 namespace HybridTracker_Pro.Controllers
 {
@@ -49,6 +50,21 @@ namespace HybridTracker_Pro.Controllers
                 {
                     app.Comments = $"Bot Mimic: Auto-updated from {oldStatus} to {app.Status}";
                     app.UpdatedAt = DateTime.UtcNow;
+
+                    // ADD HISTORY LOGGING
+                    using (var scope = HttpContext.RequestServices.CreateScope())
+                    {
+                        var historyService = scope.ServiceProvider.GetRequiredService<HistoryService>();
+                        await historyService.LogApplicationHistory(
+                            app.Id,
+                            oldStatus,
+                            app.Status,
+                            app.Comments,
+                            "BotMimic",
+                            null
+                        );
+                    }
+
                     updatedCount++;
                 }
             }
@@ -94,6 +110,20 @@ namespace HybridTracker_Pro.Controllers
             application.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+
+            // ADD HISTORY LOGGING
+            using (var scope = HttpContext.RequestServices.CreateScope())
+            {
+                var historyService = scope.ServiceProvider.GetRequiredService<HistoryService>();
+                await historyService.LogApplicationHistory(
+                    application.Id,
+                    oldStatus,
+                    application.Status,
+                    application.Comments,
+                    "BotMimic",
+                    null
+                );
+            }
 
             return Ok(new
             {
@@ -173,11 +203,26 @@ namespace HybridTracker_Pro.Controllers
             if (application == null)
                 return NotFound(new { message = "Application not found" });
 
+            var oldStatus = application.Status;
             application.Status = "Submitted";
             application.Comments = "Bot Mimic: Status reset to Submitted";
             application.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+
+            // ADD HISTORY LOGGING
+            using (var scope = HttpContext.RequestServices.CreateScope())
+            {
+                var historyService = scope.ServiceProvider.GetRequiredService<HistoryService>();
+                await historyService.LogApplicationHistory(
+                    application.Id,
+                    oldStatus,
+                    application.Status,
+                    application.Comments,
+                    "BotMimic",
+                    null
+                );
+            }
 
             return Ok(new
             {
