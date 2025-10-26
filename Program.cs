@@ -3,7 +3,6 @@ using HybridTracker_Pro.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -39,7 +38,7 @@ builder.Services.AddSwaggerGen(c =>
                     Id = "Bearer"
                 }
             },
-            new string[]{ }
+            Array.Empty<string>() // Fixed: Use Array.Empty instead of new string[]
         }
     });
 });
@@ -50,6 +49,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
+var jwtKey = jwtSettings["Key"] ?? "DefaultFallbackKeyThatIsLongEnoughForSecurity12345";
+var jwtIssuer = jwtSettings["Issuer"] ?? "HybridTrackerPro";
+var jwtAudience = jwtSettings["Audience"] ?? "HybridTrackerUsers";
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -59,10 +62,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtSettings["Issuer"],
-            ValidAudience = jwtSettings["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwtSettings["Key"]))
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
         };
     });
 
@@ -77,11 +79,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "HybridTracker Pro API v1");
-        c.RoutePrefix = string.Empty; // This makes Swagger open at root URL
+        c.RoutePrefix = "swagger"; // Changed: Use /swagger instead of root
     });
 }
 
-app.UseHttpsRedirection();
+// REMOVED: app.UseHttpsRedirection(); // This was causing the issue
+
 app.UseAuthentication();
 app.UseAuthorization();
 
